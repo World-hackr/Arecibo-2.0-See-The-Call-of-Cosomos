@@ -1,0 +1,89 @@
+{% extends 'application/base.html' %}
+
+{% block title %}Delete Project - Audio Wave Studio{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h3 class="mb-0 text-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Confirm Deletion
+                    </h3>
+                </div>
+                
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-trash fa-4x text-danger mb-3"></i>
+                        <h4 class="text-danger">Delete "{{ project.name }}"?</h4>
+                        <p class="text-danger">
+                            This action cannot be undone. All associated files, visualizations, 
+                            and data will be permanently deleted.
+                        </p>
+                    </div>
+                    
+                    <!-- Project Info -->
+                    <div class="alert alert-warning text-start">
+                        <h6 class="text-dark mb-2">Project Details:</h6>
+                        <ul class="list-unstyled mb-0 text-dark">
+                            <li><strong>Name:</strong> {{ project.name }}</li>
+                            <li><strong>Type:</strong> {{ project.get_wave_type_display }}</li>
+                            <li><strong>Created:</strong> {{ project.created_at|date:"M d, Y H:i" }}</li>
+                            {% if project.description %}
+                                <li><strong>Description:</strong> {{ project.description|truncatewords:10 }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    
+                    <!-- Files that will be deleted -->
+                    <div class="alert alert-danger text-start">
+                        <h6 class="text-alert mb-2">Files to be deleted:</h6>
+                        <ul class="list-unstyled mb-0 text-light small">
+                            {% if project.original_file %}
+                                <li><i class="fas fa-music text-danger"></i> : Original audio file</li>
+                            {% endif %}
+                            {% if project.modified_file %}
+                                <li><i class="fas fa-music text-danger"></i> : Modified audio file</li>
+                            {% endif %}
+                            {% if project.final_drawing %}
+                                <li><i class="fas fa-image text-danger"></i> : Final drawing visualization</li>
+                            {% endif %}
+                            {% if project.natural_lang %}
+                                <li><i class="fas fa-image text-danger"></i> : Natural language visualization</li>
+                            {% endif %}
+                            {% if project.wave_comparison %}
+                                <li><i class="fas fa-image text-danger"></i> : Wave comparison visualization</li>
+                            {% endif %}
+                            <li><i class="fas fa-database text-danger"></i> : All project metadata and settings</li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <div class="btn-group gap-3" role="group">
+                            <a href="{% url 'project_detail' project.id %}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="fas fa-trash"></i> Yes, Delete Project
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add confirmation dialog for extra safety
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (!confirm('Are you absolutely sure you want to delete this project? This action cannot be undone.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

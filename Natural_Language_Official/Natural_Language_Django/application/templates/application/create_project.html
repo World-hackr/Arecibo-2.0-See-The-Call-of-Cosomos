@@ -1,0 +1,1100 @@
+{% extends 'application/base.html' %}
+
+{% block title %}Create Project - Audio Wave Studio{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center" data-aos="fade-up">
+            <h1 class="display-5 text-gradient mb-3">
+                <i class="fas fa-rocket me-3"></i>Create New Project
+            </h1>
+            <p class="lead text-secondary">
+                Transform your audio into stunning visual art with our advanced wave generation tools
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-10 col-lg-11">
+            <!-- Progress Indicator -->
+            <div class="mb-4" data-aos="fade-up">
+                <div class="card glass-effect">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-secondary fw-bold">Project Creation Progress</small>
+                            <div class="progress" style="width: 200px; height: 6px;">
+                                <div class="progress-bar" role="progressbar" style="width: 0%" id="progressBar"></div>
+                            </div>
+                            <small class="text-secondary" id="progressText">0% Complete</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" data-aos="fade-up" data-aos-delay="200">
+                <div class="card-header">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h3 class="mb-0 text-primary">
+                            <i class="fas fa-plus-circle me-2"></i>Project Configuration
+                        </h3>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetForm()">
+                                <i class="fas fa-undo me-1"></i>Reset
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="showPreset()">
+                                <i class="fas fa-magic me-1"></i>Use Preset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" id="projectForm">
+                        {% csrf_token %}
+                        
+                        <!-- Step 1: Basic Information -->
+                        <div class="form-step active" id="step1">
+                            <div class="mb-4">
+                                <h5 class="text-accent mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Basic Information
+                                </h5>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label for="name" class="form-label">
+                                            <i class="fas fa-tag me-1"></i>Project Name
+                                        </label>
+                                        <input type="text" class="form-control" id="name" name="name" required 
+                                               placeholder="Enter a descriptive project name"
+                                               maxlength="200">
+                                        <div class="form-text">
+                                            Choose a unique name that describes your audio visualization project
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="wave_type" class="form-label">
+                                            <i class="fas fa-wave-square me-1"></i>Audio Source
+                                        </label>
+                                        <select class="form-select" id="wave_type" name="wave_type" onchange="toggleAudioSource()">
+                                            <option value="uploaded">📁 Upload Audio File</option>
+                                            <option value="sine">〰️ Generate Sine Wave</option>
+                                            <option value="square">⬛ Generate Square Wave</option>
+                                            <option value="triangle">🔺 Generate Triangle Wave</option>
+                                            <option value="sawtooth">🪚 Generate Sawtooth Wave</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label for="description" class="form-label">
+                                        <i class="fas fa-align-left me-1"></i>Description <span class="text-muted">(Optional)</span>
+                                    </label>
+                                    <textarea class="form-control" id="description" name="description" rows="3" 
+                                              placeholder="Describe your project, inspiration, or intended use..."
+                                              maxlength="1000"></textarea>
+                                    <div class="form-text">
+                                        <span id="descriptionCount">0</span>/1000 characters
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Audio Configuration -->
+                        <div class="form-step" id="step2">
+                            <!-- File Upload Section -->
+                            <div id="uploadSection" class="mb-4">
+                                <h5 class="text-accent mb-3">
+                                    <i class="fas fa-upload me-2"></i>Audio File Upload
+                                </h5>
+                                
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-content text-center p-4">
+                                        <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 3rem;"></i>
+                                        <h6 class="text-primary mb-2">Drag & Drop Your Audio File</h6>
+                                        <p class="text-secondary mb-3">or click to browse files</p>
+                                        <input type="file" class="form-control" id="audio_file" name="audio_file" 
+                                               accept=".wav,.mp3,.flac" style="opacity: 0.1; height: 20px; margin: 5px;">
+                                        <button type="button" class="btn btn-outline-primary" onclick="triggerFileInput()">
+                                            <i class="fas fa-folder-open me-2"></i>Choose File
+                                        </button>
+                                        <div class="mt-3">
+                                            <small class="text-muted">
+                                                Supported formats: WAV, MP3, FLAC • Max size: 50MB
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="fileInfo" class="mt-3 d-none">
+                                    <div class="alert alert-success">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file-audio me-2"></i>
+                                                <span id="fileName"></span>
+                                            </div>
+                                            <div>
+                                                <span id="fileSize" class="badge bg-success"></span>
+                                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="clearFile()">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="progress mt-2" id="uploadProgress" style="display: none;">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                 role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Wave Generation Section -->
+                            <div id="waveGenSection" class="mb-4" style="display: none;">
+                                <h5 class="text-accent mb-3">
+                                    <i class="fas fa-cogs me-2"></i>Wave Generation Parameters
+                                </h5>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label for="frequency" class="form-label">
+                                            <i class="fas fa-tachometer-alt me-1"></i>Frequency (Hz)
+                                        </label>
+                                        <input type="number" class="form-control" id="frequency" name="frequency" 
+                                               value="440" min="1" max="20000" step="1">
+                                        <div class="form-text">Range: 1-20,000 Hz</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="samples_per_wave" class="form-label">
+                                            <i class="fas fa-chart-line me-1"></i>Samples per Wave
+                                        </label>
+                                        <input type="number" class="form-control" id="samples_per_wave" name="samples_per_wave" 
+                                               value="100" min="10" max="1000" step="10">
+                                        <div class="form-text">Range: 10-1,000 samples</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="periods" class="form-label">
+                                            <i class="fas fa-sync me-1"></i>Number of Periods
+                                        </label>
+                                        <input type="number" class="form-control" id="periods" name="periods" 
+                                               value="10" min="1" max="100" step="1">
+                                        <div class="form-text">Range: 1-100 periods</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Wave Preview -->
+                                <div class="mt-4">
+                                    <div class="card glass-effect">
+                                        <div class="card-body">
+                                            <h6 class="text-primary mb-3">
+                                                <i class="fas fa-eye me-2"></i>Wave Preview
+                                            </h6>
+                                            <canvas id="wavePreview" width="800" height="200" class="w-100" style="max-height: 200px;"></canvas>
+                                            <div class="mt-2 text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="updateWavePreview()">
+                                                    <i class="fas fa-refresh me-1"></i>Update Preview
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Color Configuration -->
+                        <div class="form-step" id="step3">
+                            <h5 class="text-accent mb-3">
+                                <i class="fas fa-palette me-2"></i>Visualization Colors
+                            </h5>
+                            
+                            <div class="row g-4">
+                                <div class="col-md-4">
+                                    <label for="background_color" class="form-label">
+                                        <i class="fas fa-fill me-1"></i>Background Color
+                                    </label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control-color" id="background_color" name="background_color" value="#000000">
+                                        <input type="text" class="form-control" id="bg_hex" value="#000000" 
+                                               pattern="^#[0-9A-Fa-f]{6}$" onchange="updateColorPicker('background_color', this.value)">
+                                    </div>
+                                    <div class="form-text">Canvas background color</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="positive_color" class="form-label">
+                                        <i class="fas fa-arrow-up me-1"></i>Positive Wave Color
+                                    </label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control-color" id="positive_color" name="positive_color" value="#00FF00">
+                                        <input type="text" class="form-control" id="pos_hex" value="#00FF00"
+                                               pattern="^#[0-9A-Fa-f]{6}$" onchange="updateColorPicker('positive_color', this.value)">
+                                    </div>
+                                    <div class="form-text">Color for positive amplitudes</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="negative_color" class="form-label">
+                                        <i class="fas fa-arrow-down me-1"></i>Negative Wave Color
+                                    </label>
+                                    <div class="color-input-group">
+                                        <input type="color" class="form-control-color" id="negative_color" name="negative_color" value="#00FFFF">
+                                        <input type="text" class="form-control" id="neg_hex" value="#00FFFF"
+                                               pattern="^#[0-9A-Fa-f]{6}$" onchange="updateColorPicker('negative_color', this.value)">
+                                    </div>
+                                    <div class="form-text">Color for negative amplitudes</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Color Presets -->
+                            <div class="mt-4">
+                                <h6 class="text-secondary mb-3">
+                                    <i class="fas fa-swatchbook me-2"></i>Color Presets
+                                </h6>
+                                <div class="color-presets">
+                                    {% for name, hex_color in color_palette.items %}
+                                        <div class="color-preset" data-color="{{ hex_color }}" title="{{ name }}" 
+                                             onclick="selectPresetColor('{{ hex_color }}')">
+                                            <div class="color-swatch" style="background-color: {{ hex_color }}"></div>
+                                            <small class="text-muted mt-1">{{ name|truncatechars:8 }}</small>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Click a preset to apply it to the selected color field
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Color Preview -->
+                            <div class="mt-4">
+                                <div class="card glass-effect">
+                                    <div class="card-body">
+                                        <h6 class="text-primary mb-3">
+                                            <i class="fas fa-eye me-2"></i>Color Preview
+                                        </h6>
+                                        <div id="colorPreview" class="color-preview-area rounded p-3" 
+                                             style="background: #000000; min-height: 100px; position: relative;">
+                                            <div class="sample-wave">
+                                                <div class="positive-sample" style="background: #00FF00;"></div>
+                                                <div class="negative-sample" style="background: #00FFFF;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Navigation Buttons -->
+                        <div class="d-flex justify-content-between mt-5">
+                            <div>
+                                <a href="{% url 'gallery' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Gallery
+                                </a>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary" id="prevBtn" onclick="previousStep()" style="display: none;">
+                                    <i class="fas fa-chevron-left me-1"></i>Previous
+                                </button>
+                                <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
+                                    Next<i class="fas fa-chevron-right ms-1"></i>
+                                </button>
+                                <button type="submit" class="btn btn-success btn-lg" id="submitBtn" style="display: none;">
+                                    <i class="fas fa-rocket me-2"></i>Create Project
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Multi-step form styles */
+    .form-step {
+        display: none;
+        animation: fadeInStep 0.5s ease-out;
+    }
+    
+    .form-step.active {
+        display: block;
+    }
+    
+    @keyframes fadeInStep {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Upload area styling */
+    .upload-area {
+        border: 3px dashed var(--border-default);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .upload-area:hover {
+        border-color: var(--primary-blue);
+        background: rgba(88, 166, 255, 0.05);
+    }
+    
+    .upload-area.dragover {
+        border-color: var(--primary-green);
+        background: rgba(86, 211, 100, 0.1);
+        transform: scale(1.02);
+    }
+    
+    /* Color input group */
+    .color-input-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .color-input-group .form-control-color {
+        flex-shrink: 0;
+        width: 60px;
+    }
+    
+    /* Color presets grid */
+    .color-presets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .color-preset {
+        text-align: center;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .color-preset:hover {
+        background: var(--bg-hover);
+        transform: translateY(-2px);
+    }
+    
+    .color-preset .color-swatch {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 0.5rem;
+        display: block;
+    }
+    
+    /* Color preview area */
+    .color-preview-area {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .sample-wave {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .positive-sample, .negative-sample {
+        width: 60px;
+        height: 20px;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .positive-sample::before {
+        content: '+';
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+    
+    .negative-sample::before {
+        content: '-';
+        position: absolute;
+        top: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+    
+    /* Wave preview canvas */
+    #wavePreview {
+        background: var(--bg-dark);
+        border-radius: 8px;
+        border: 1px solid var(--border-default);
+    }
+    
+    /* Form validation styles */
+    .form-control.is-valid {
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 0.2rem rgba(86, 211, 100, 0.25);
+    }
+    
+    .form-control.is-invalid {
+        border-color: var(--accent-danger);
+        box-shadow: 0 0 0 0.2rem rgba(248, 81, 73, 0.25);
+    }
+    
+    .valid-feedback, .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .valid-feedback {
+        color: var(--primary-green);
+    }
+    
+    .invalid-feedback {
+        color: var(--accent-danger);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentStep = 1;
+    const totalSteps = 3;
+    let selectedColorField = 'positive_color';
+
+    $(document).ready(function() {
+        // Initialize form
+        initializeForm();
+        updateProgress();
+        
+        // Setup drag and drop
+        setupDragAndDrop();
+        
+        // Fallback file input handler (in case jQuery fails)
+        const fileInput = document.getElementById('audio_file');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    handleFileSelection(this.files[0]);
+                }
+            });
+        }
+        
+        // Setup form validation
+        setupFormValidation();
+        
+        // Setup color synchronization
+        setupColorSync();
+        
+        // Setup wave preview
+        if ($('#waveGenSection').is(':visible')) {
+            updateWavePreview();
+        }
+        
+        // Character counter for description
+        $('#description').on('input', function() {
+            const count = $(this).val().length;
+            $('#descriptionCount').text(count);
+            
+            if (count > 800) {
+                $('#descriptionCount').addClass('text-warning');
+            } else {
+                $('#descriptionCount').removeClass('text-warning');
+            }
+        });
+    });
+
+    function initializeForm() {
+        // Show first step
+        $('.form-step').removeClass('active');
+        $('#step1').addClass('active');
+        
+        // Setup step navigation
+        updateStepButtons();
+        
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        
+        // Setup real-time preview updates
+        $('input, select, textarea').on('change', updateProgress);
+    }
+
+    function setupDragAndDrop() {
+        const $uploadArea = $('#uploadArea');
+        const $fileInput = $('#audio_file');
+
+        // Prevent default drag behaviors
+        $(document).on('dragenter dragover drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        // Upload area drag events
+        $uploadArea.on('dragenter dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).addClass('dragover');
+        });
+
+        $uploadArea.on('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).removeClass('dragover');
+        });
+
+        $uploadArea.on('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            $(this).removeClass('dragover');
+
+            const files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        // Click to upload
+        $uploadArea.on('click', function() {
+            triggerFileInput();
+        });
+
+        // File input change
+        $fileInput.on('change', function() {
+            if (this.files && this.files[0]) {
+                handleFileSelection(this.files[0]);
+            }
+        });
+    }
+
+    function handleFileSelection(file) {
+        // Validate file type
+        const allowedTypes = ['.wav', '.mp3', '.flac'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!allowedTypes.includes(fileExtension)) {
+            showNotification('Please select a valid audio file (WAV, MP3, or FLAC)', 'error');
+            return;
+        }
+
+        // Validate file size (50MB)
+        if (file.size > 50 * 1024 * 1024) {
+            showNotification('File size must be less than 50MB', 'error');
+            return;
+        }
+
+        // Store the selected file for validation
+        selectedFile = file;
+        console.log('File selected and stored:', file.name);
+
+        // Update UI
+        $('#fileName').text(file.name);
+        $('#fileSize').text(formatFileSize(file.size));
+        $('#fileInfo').removeClass('d-none');
+        $('#uploadArea .upload-content').html(`
+            <i class="fas fa-check-circle text-success mb-3" style="font-size: 3rem;"></i>
+            <h6 class="text-success mb-2">File Selected Successfully</h6>
+            <p class="text-secondary">Click here to change the file</p>
+        `);
+
+        // Simulate upload progress
+        simulateUploadProgress();
+        
+        showNotification(`File "${file.name}" selected successfully`, 'success');
+    }
+    
+    function triggerFileInput() {
+        // Robust file input trigger that works with or without jQuery
+        console.log('triggerFileInput called');
+        const fileInput = document.getElementById('audio_file');
+        if (fileInput) {
+            console.log('File input found, triggering click');
+            fileInput.click();
+        } else if (typeof $ !== 'undefined') {
+            console.log('Using jQuery fallback');
+            $('#audio_file').click();
+        } else {
+            console.error('No file input found and jQuery not available');
+        }
+    }
+
+    function clearFile() {
+        $('#audio_file').val('');
+        selectedFile = null; // Reset the selected file
+        console.log('File cleared, selectedFile reset');
+        $('#fileInfo').addClass('d-none');
+        $('#uploadArea .upload-content').html(`
+            <i class="fas fa-cloud-upload-alt text-primary mb-3" style="font-size: 3rem;"></i>
+            <h6 class="text-primary mb-2">Drag & Drop Your Audio File</h6>
+            <p class="text-secondary mb-3">or click to browse files</p>
+            <button type="button" class="btn btn-outline-primary" onclick="triggerFileInput()">
+                <i class="fas fa-folder-open me-2"></i>Choose File
+            </button>
+            <div class="mt-3">
+                <small class="text-muted">
+                    Supported formats: WAV, MP3, FLAC • Max size: 50MB
+                </small>
+            </div>
+        `);
+        showNotification('File cleared', 'info');
+    }
+
+    function simulateUploadProgress() {
+        const $progress = $('#uploadProgress');
+        const $progressBar = $progress.find('.progress-bar');
+        
+        $progress.show();
+        let progress = 0;
+        
+        const interval = setInterval(() => {
+            progress += Math.random() * 30;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(interval);
+                setTimeout(() => {
+                    $progress.fadeOut();
+                }, 1000);
+            }
+            $progressBar.css('width', progress + '%');
+        }, 200);
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function setupFormValidation() {
+        // Real-time validation
+        $('#name').on('input', function() {
+            const value = $(this).val().trim();
+            if (value.length >= 3) {
+                $(this).removeClass('is-invalid').addClass('is-valid');
+            } else {
+                $(this).removeClass('is-valid').addClass('is-invalid');
+            }
+        });
+
+        // Audio source validation
+        $('#wave_type').on('change', function() {
+            validateCurrentStep();
+        });
+
+        // Wave parameters validation
+        $('#frequency, #samples_per_wave, #periods').on('input', function() {
+            const value = parseInt($(this).val());
+            const min = parseInt($(this).attr('min'));
+            const max = parseInt($(this).attr('max'));
+            
+            if (value >= min && value <= max) {
+                $(this).removeClass('is-invalid').addClass('is-valid');
+            } else {
+                $(this).removeClass('is-valid').addClass('is-invalid');
+            }
+            
+            if ($('#waveGenSection').is(':visible')) {
+                updateWavePreview();
+            }
+        });
+    }
+
+    function validateCurrentStep() {
+        let isValid = true;
+
+        if (currentStep === 1) {
+            const name = $('#name').val().trim();
+            if (name.length < 3) {
+                $('#name').addClass('is-invalid');
+                isValid = false;
+            } else {
+                $('#name').removeClass('is-invalid').addClass('is-valid');
+            }
+        } else if (currentStep === 2) {
+            const waveType = $('#wave_type').val();
+            console.log('Validating step 2, wave_type:', waveType);
+            
+            if (waveType === 'uploaded') {
+                const fileInput = document.getElementById('audio_file');
+                const hasFileInInput = fileInput && fileInput.files && fileInput.files.length > 0;
+                const hasSelectedFile = selectedFile !== null;
+                const hasFile = hasFileInInput || hasSelectedFile;
+                
+                console.log('File input:', fileInput);
+                console.log('Has files in input:', hasFileInInput);
+                console.log('Has selected file:', hasSelectedFile);
+                console.log('Selected file:', selectedFile);
+                console.log('Overall has file:', hasFile);
+                
+                if (!hasFile) {
+                    showNotification('Please select an audio file', 'warning');
+                    isValid = false;
+                } else {
+                    const fileName = hasFileInInput ? fileInput.files[0].name : selectedFile.name;
+                    console.log('File validation passed:', fileName);
+                }
+            }
+        }
+
+        return isValid;
+    }
+
+    function nextStep() {
+        if (!validateCurrentStep()) {
+            return;
+        }
+
+        if (currentStep < totalSteps) {
+            $('#step' + currentStep).removeClass('active');
+            currentStep++;
+            $('#step' + currentStep).addClass('active');
+            updateStepButtons();
+            updateProgress();
+            
+            // Scroll to top of form
+            $('html, body').animate({
+                scrollTop: $('.card').offset().top - 100
+            }, 500);
+        }
+    }
+
+    function previousStep() {
+        if (currentStep > 1) {
+            $('#step' + currentStep).removeClass('active');
+            currentStep--;
+            $('#step' + currentStep).addClass('active');
+            updateStepButtons();
+            updateProgress();
+        }
+    }
+
+    function updateStepButtons() {
+        const $prevBtn = $('#prevBtn');
+        const $nextBtn = $('#nextBtn');
+        const $submitBtn = $('#submitBtn');
+
+        if (currentStep === 1) {
+            $prevBtn.hide();
+            $nextBtn.show();
+            $submitBtn.hide();
+        } else if (currentStep === totalSteps) {
+            $prevBtn.show();
+            $nextBtn.hide();
+            $submitBtn.show();
+        } else {
+            $prevBtn.show();
+            $nextBtn.show();
+            $submitBtn.hide();
+        }
+    }
+
+    function updateProgress() {
+        const progress = (currentStep / totalSteps) * 100;
+        $('#progressBar').css('width', progress + '%');
+        $('#progressText').text(Math.round(progress) + '% Complete');
+    }
+
+    function toggleAudioSource() {
+        const waveType = $('#wave_type').val();
+        const $uploadSection = $('#uploadSection');
+        const $waveGenSection = $('#waveGenSection');
+        
+        if (waveType === 'uploaded') {
+            $uploadSection.show();
+            $waveGenSection.hide();
+            $('#audio_file').prop('required', true);
+        } else {
+            $uploadSection.hide();
+            $waveGenSection.show();
+            $('#audio_file').prop('required', false);
+            updateWavePreview();
+        }
+        
+        updateProgress();
+    }
+
+    function updateWavePreview() {
+        const canvas = document.getElementById('wavePreview');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const freq = parseFloat($('#frequency').val()) || 440;
+        const spw = parseInt($('#samples_per_wave').val()) || 100;
+        const periods = parseInt($('#periods').val()) || 10;
+        const waveType = $('#wave_type').val();
+        
+        // Clear canvas
+        ctx.fillStyle = '#0D1117';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw wave
+        ctx.strokeStyle = '#58A6FF';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        const samples = spw * periods;
+        const amplitude = canvas.height / 4;
+        const centerY = canvas.height / 2;
+        
+        for (let i = 0; i < samples; i++) {
+            const x = (i / samples) * canvas.width;
+            let y = centerY;
+            
+            const phase = (i / spw) * 2 * Math.PI;
+            
+            switch (waveType) {
+                case 'sine':
+                    y = centerY + amplitude * Math.sin(phase);
+                    break;
+                case 'square':
+                    y = centerY + amplitude * Math.sign(Math.sin(phase));
+                    break;
+                case 'triangle':
+                    y = centerY + amplitude * (2 / Math.PI) * Math.asin(Math.sin(phase));
+                    break;
+                case 'sawtooth':
+                    y = centerY + amplitude * (2 * (phase / (2 * Math.PI) - Math.floor(0.5 + phase / (2 * Math.PI))));
+                    break;
+            }
+            
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        
+        ctx.stroke();
+        
+        // Add grid
+        ctx.strokeStyle = 'rgba(88, 166, 255, 0.1)';
+        ctx.lineWidth = 1;
+        
+        // Horizontal lines
+        for (let i = 1; i < 4; i++) {
+            const y = (canvas.height / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+        
+        // Vertical lines
+        for (let i = 1; i < periods; i++) {
+            const x = (canvas.width / periods) * i;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+    }
+
+    function setupColorSync() {
+        // Color picker to hex sync
+        $('#background_color').on('change', function() {
+            $('#bg_hex').val($(this).val());
+            updateColorPreview();
+        });
+        
+        $('#positive_color').on('change', function() {
+            $('#pos_hex').val($(this).val());
+            updateColorPreview();
+        });
+        
+        $('#negative_color').on('change', function() {
+            $('#neg_hex').val($(this).val());
+            updateColorPreview();
+        });
+        
+        // Hex to color picker sync
+        $('#bg_hex').on('change', function() {
+            $('#background_color').val($(this).val());
+            updateColorPreview();
+        });
+        
+        $('#pos_hex').on('change', function() {
+            $('#positive_color').val($(this).val());
+            updateColorPreview();
+        });
+        
+        $('#neg_hex').on('change', function() {
+            $('#negative_color').val($(this).val());
+            updateColorPreview();
+        });
+        
+        // Track selected field
+        $('input[type="color"]').on('focus', function() {
+            selectedColorField = $(this).attr('id');
+        });
+        
+        // Initial preview
+        updateColorPreview();
+    }
+
+    function updateColorPreview() {
+        const bgColor = $('#background_color').val();
+        const posColor = $('#positive_color').val();
+        const negColor = $('#negative_color').val();
+        
+        $('#colorPreview').css('background', bgColor);
+        $('.positive-sample').css('background', posColor);
+        $('.negative-sample').css('background', negColor);
+    }
+
+    function updateColorPicker(colorFieldId, hexValue) {
+        if (/^#[0-9A-F]{6}$/i.test(hexValue)) {
+            $('#' + colorFieldId).val(hexValue);
+            updateColorPreview();
+        }
+    }
+
+    function selectPresetColor(hexColor) {
+        if (selectedColorField) {
+            $('#' + selectedColorField).val(hexColor);
+            $('#' + selectedColorField.replace('_color', '_hex')).val(hexColor);
+            updateColorPreview();
+            showNotification(`Applied ${hexColor} to ${selectedColorField.replace('_', ' ')}`, 'success');
+        } else {
+            showNotification('Please select a color field first', 'warning');
+        }
+    }
+
+    function resetForm() {
+        if (confirm('Are you sure you want to reset the form? All entered data will be lost.')) {
+            $('#projectForm')[0].reset();
+            currentStep = 1;
+            $('.form-step').removeClass('active');
+            $('#step1').addClass('active');
+            updateStepButtons();
+            updateProgress();
+            clearFile();
+            $('.form-control').removeClass('is-valid is-invalid');
+            updateColorPreview();
+            showNotification('Form reset successfully', 'info');
+        }
+    }
+
+    function showPreset() {
+        // Show a modal with preset configurations
+        const presets = [
+            { name: 'Classic Neon', bg: '#000000', pos: '#00FF00', neg: '#00FFFF' },
+            { name: 'Ocean Blue', bg: '#001122', pos: '#0099FF', neg: '#66CCFF' },
+            { name: 'Sunset', bg: '#1a0a00', pos: '#FF6600', neg: '#FFAA00' },
+            { name: 'Purple Dreams', bg: '#1a001a', pos: '#CC00FF', neg: '#FF66FF' },
+            { name: 'Matrix', bg: '#000000', pos: '#00FF00', neg: '#00AA00' }
+        ];
+        
+        let html = `
+            <div class="modal fade" id="presetModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content glass-effect">
+                        <div class="modal-header border-0">
+                            <h5 class="modal-title text-primary">
+                                <i class="fas fa-magic me-2"></i>Color Presets
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+        `;
+        
+        presets.forEach(preset => {
+            html += `
+                <div class="col-12">
+                    <div class="card glass-effect cursor-pointer preset-option" 
+                         onclick="applyPreset('${preset.bg}', '${preset.pos}', '${preset.neg}')">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h6 class="mb-1">${preset.name}</h6>
+                                    <small class="text-muted">Click to apply</small>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <div class="color-swatch" style="background: ${preset.bg}"></div>
+                                    <div class="color-swatch" style="background: ${preset.pos}"></div>
+                                    <div class="color-swatch" style="background: ${preset.neg}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('#presetModal').remove();
+        $('body').append(html);
+        $('#presetModal').modal('show');
+    }
+
+    function applyPreset(bg, pos, neg) {
+        $('#background_color').val(bg);
+        $('#bg_hex').val(bg);
+        $('#positive_color').val(pos);
+        $('#pos_hex').val(pos);
+        $('#negative_color').val(neg);
+        $('#neg_hex').val(neg);
+        updateColorPreview();
+        $('#presetModal').modal('hide');
+        showNotification('Preset applied successfully!', 'success');
+    }
+
+    // Form submission
+    $('#projectForm').on('submit', function(e) {
+        if (!validateCurrentStep()) {
+            e.preventDefault();
+            return;
+        }
+        
+        const $submitBtn = $('#submitBtn');
+        $submitBtn.prop('disabled', true);
+        $submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Creating Project...');
+        
+        showLoadingOverlay();
+        
+        // Show success message
+        showNotification('Project creation started! You will be redirected once processing begins.', 'success');
+    });
+
+    // Add styles for presets
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            .preset-option {
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .preset-option:hover {
+                transform: translateY(-2px);
+                border-color: var(--primary-blue);
+            }
+            .cursor-pointer {
+                cursor: pointer;
+            }
+        `)
+        .appendTo('head');
+</script>
+{% endblock %}

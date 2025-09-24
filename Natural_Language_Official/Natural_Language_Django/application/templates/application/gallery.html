@@ -1,0 +1,578 @@
+{% extends 'application/base.html' %}
+
+{% load math_extras %}
+
+{% block title %}Gallery - Audio Wave Studio{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="text-center" data-aos="fade-up">
+                <div class="mb-4">
+                    <h1 class="display-4 text-gradient mb-3">
+                        <i class="fas fa-grid-2 me-3"></i>Project Gallery
+                    </h1>
+                    <p class="lead text-secondary">
+                        Explore your audio visualization projects and create new masterpieces
+                    </p>
+                </div>
+                
+                <!-- Stats Cards -->
+                <div class="row justify-content-center mb-4">
+                    <div class="col-md-8">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="card glass-effect text-center py-3" data-aos="fade-up" data-aos-delay="100">
+                                    <div class="card-body p-3">
+                                        <i class="fas fa-folder-open text-primary mb-2" style="font-size: 2rem;"></i>
+                                        <h4 class="text-primary mb-1">{{ total_projects }}</h4>
+                                        <small class="text-secondary">Total Projects</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card glass-effect text-center py-3" data-aos="fade-up" data-aos-delay="200">
+                                    <div class="card-body p-3">
+                                        <i class="fas fa-clock text-primary mb-2" style="font-size: 2rem;"></i>
+                                        <h4 class="text-primary mb-1">{{ page_obj|length }}</h4>
+                                        <small class="text-secondary">This Page</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card glass-effect text-center py-3" data-aos="fade-up" data-aos-delay="300">
+                                    <div class="card-body p-3">
+                                        <i class="fas fa-rocket text-primary mb-2" style="font-size: 2rem;"></i>
+                                        <h4 class="text-primary mb-1">New</h4>
+                                        <small class="text-secondary">
+                                            <a href="{% url 'create_project' %}" class="text-decoration-none text-secondary hover-accent">
+                                                Create Project
+                                            </a>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-center gap-3 flex-wrap" data-aos="fade-up" data-aos-delay="400">
+                    <a href="{% url 'create_project' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plus-circle me-2"></i>Create New Project
+                    </a>
+                    <button class="btn btn-outline-secondary btn-lg" onclick="refreshGallery()">
+                        <i class="fas fa-refresh me-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if page_obj %}
+        <!-- Filter and Sort Options -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card glass-effect" data-aos="fade-up">
+                    <div class="card-body p-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center gap-3">
+                                    <small class="text-secondary fw-bold">Filter by:</small>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <input type="radio" class="btn-check" name="filter" id="filter-all" checked>
+                                        <label class="btn btn-outline-primary" for="filter-all">All</label>
+                                        
+                                        <input type="radio" class="btn-check" name="filter" id="filter-processing">
+                                        <label class="btn btn-outline-primary" for="filter-processing">Processing</label>
+                                        
+                                        <input type="radio" class="btn-check" name="filter" id="filter-completed">
+                                        <label class="btn btn-outline-primary" for="filter-completed">Completed</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-md-end mt-2 mt-md-0">
+                                <div class="d-flex align-items-center justify-content-md-end gap-2">
+                                    <small class="text-secondary fw-bold">View:</small>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary active" onclick="setViewMode('grid')">
+                                            <i class="fas fa-grid-2"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="setViewMode('list')">
+                                            <i class="fas fa-list"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Projects Grid -->
+        <div class="row g-4" id="projectsContainer">
+            {% for project in page_obj %}
+                <div class="col-xl-4 col-lg-6 col-md-6 project-card" 
+                     data-status="{% if project.is_processing %}processing{% else %}completed{% endif %}"
+                     data-aos="fade-up" 
+                     data-aos-delay="{{ forloop.counter0|add:1|floatformat:0|mul:100 }}">
+                    <div class="card h-100 hover-lift">
+                        <!-- Card Header with Status -->
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-waveform-lines text-gradient"></i>
+                                <h6 class="mb-0 text-primary fw-bold">{{ project.name|truncatechars:20 }}</h6>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if project.is_processing %}
+                                    <div class="processing-indicator" title="Processing..." data-bs-toggle="tooltip"></div>
+                                    <span class="badge bg-warning">Processing</span>
+                                {% else %}
+                                    <i class="fas fa-check-circle text-success" title="Completed" data-bs-toggle="tooltip"></i>
+                                    <span class="badge bg-success">Ready</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="card-body">
+                            <!-- Project Info -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="fas fa-wave-square text-primary"></i>
+                                    <small class="text-secondary">{{ project.get_wave_type_display }}</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="far fa-clock text-primary"></i>
+                                    <small class="text-secondary">{{ project.created_at|date:"M d, Y H:i" }}</small>
+                                </div>
+                            </div>
+                            
+                            {% if project.description %}
+                                <p class="card-text text-secondary small mb-3">
+                                    {{ project.description|truncatewords:12 }}
+                                </p>
+                            {% endif %}
+                            
+                            <!-- Color Palette Display -->
+                            <div class="mb-3">
+                                <small class="text-secondary fw-bold d-block mb-2">Color Palette:</small>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="color-swatch" 
+                                         style="background-color: {{ project.background_color }}" 
+                                         title="Background: {{ project.background_color }}"
+                                         data-bs-toggle="tooltip"></div>
+                                    <div class="color-swatch" 
+                                         style="background-color: {{ project.positive_color }}" 
+                                         title="Positive: {{ project.positive_color }}"
+                                         data-bs-toggle="tooltip"></div>
+                                    <div class="color-swatch" 
+                                         style="background-color: {{ project.negative_color }}" 
+                                         title="Negative: {{ project.negative_color }}"
+                                         data-bs-toggle="tooltip"></div>
+                                    <small class="text-muted ms-2">{{ project.background_color }}</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview Visualization -->
+                            {% if project.final_drawing %}
+                                <div class="audio-visualization text-center mb-3">
+                                    <img src="{{ project.final_drawing.url }}" 
+                                         alt="Wave visualization preview" 
+                                         class="img-fluid rounded" 
+                                         style="max-height: 120px; object-fit: contain; cursor: pointer;"
+                                         onclick="previewImage('{{ project.final_drawing.url }}', '{{ project.name }}')"
+                                         loading="lazy">
+                                </div>
+                            {% else %}
+                                <div class="audio-visualization text-center mb-3 d-flex align-items-center justify-content-center" style="min-height: 120px;">
+                                    {% if project.is_processing %}
+                                        <div class="text-center">
+                                            <div class="processing-indicator mb-2"></div>
+                                            <small class="text-secondary">Generating visualization...</small>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-image fa-2x mb-2"></i>
+                                            <br>
+                                            <small>No preview available</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="card-footer">
+                            <div class="d-grid gap-2">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'project_detail' project.id %}" 
+                                       class="btn btn-primary btn-sm flex-fill">
+                                        <i class="fas fa-eye me-1"></i>View Details
+                                    </a>
+                                    {% if not project.is_processing %}
+                                        <a href="{% url 'visualize_project' project.id %}" 
+                                           class="btn btn-outline-primary btn-sm"
+                                           title="Interactive Visualizer" data-bs-toggle="tooltip">
+                                            <i class="fas fa-chart-line"></i>
+                                        </a>
+                                    {% endif %}
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="confirmDelete('{{ project.id }}', '{{ project.name }}')"
+                                            title="Delete Project" data-bs-toggle="tooltip">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Enhanced Pagination -->
+        {% if page_obj.has_other_pages %}
+            <div class="row mt-5">
+                <div class="col-12">
+                    <nav aria-label="Page navigation" data-aos="fade-up">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link glass-effect" href="?page=1" 
+                                       title="First Page" data-bs-toggle="tooltip">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link glass-effect" href="?page={{ page_obj.previous_page_number }}"
+                                       title="Previous Page" data-bs-toggle="tooltip">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            <!-- Page Numbers -->
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link bg-primary border-primary">
+                                            {{ num }}
+                                        </span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link glass-effect" href="?page={{ num }}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link glass-effect" href="?page={{ page_obj.next_page_number }}"
+                                       title="Next Page" data-bs-toggle="tooltip">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link glass-effect" href="?page={{ page_obj.paginator.num_pages }}"
+                                       title="Last Page" data-bs-toggle="tooltip">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                        
+                        <!-- Page Info -->
+                        <div class="text-center mt-3">
+                            <small class="text-secondary">
+                                Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} 
+                                of {{ page_obj.paginator.count }} projects
+                            </small>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <!-- Empty State -->
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5" data-aos="fade-up">
+                    <div class="mb-4">
+                        <i class="fas fa-folder-open text-muted" style="font-size: 5rem; opacity: 0.3;"></i>
+                    </div>
+                    <h3 class="text-secondary mb-3">No projects yet</h3>
+                    <p class="text-muted mb-4">
+                        Start your audio visualization journey by creating your first project!
+                        <br>
+                        Upload audio files or generate custom waveforms to get started.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap">
+                        <a href="{% url 'create_project' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus-circle me-2"></i>Create Your First Project
+                        </a>
+                        <button class="btn btn-outline-secondary btn-lg" onclick="showQuickHelp()">
+                            <i class="fas fa-question-circle me-2"></i>Learn More
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content glass-effect">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-primary" id="imagePreviewModalLabel">
+                    <i class="fas fa-image me-2"></i>Visualization Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <img id="previewImage" src="" alt="Preview" class="img-fluid rounded" style="max-height: 70vh;">
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-effect">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger" id="deleteConfirmModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary">
+                    Are you sure you want to delete the project "<span id="deleteProjectName" class="text-primary fw-bold"></span>"?
+                </p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    This action cannot be undone. All associated files and visualizations will be permanently deleted.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a id="deleteConfirmLink" href="#" class="btn btn-danger">
+                    <i class="fas fa-trash me-2"></i>Delete Project
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Enhanced gallery functionality
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        
+        // Filter functionality
+        $('input[name="filter"]').on('change', function() {
+            const filter = $(this).attr('id').replace('filter-', '');
+            filterProjects(filter);
+        });
+        
+        // Auto-refresh for processing projects with enhanced UX
+        if ($('.processing-indicator').length > 0) {
+            startEnhancedProcessingCheck();
+        }
+        
+        // Add keyboard navigation
+        setupKeyboardNavigation();
+        
+        // Lazy loading for images
+        setupLazyLoading();
+    });
+
+    // Enhanced processing check with better visual feedback
+    function startEnhancedProcessingCheck() {
+        let checkCount = 0;
+        const maxChecks = 60; // 5 minutes
+        const processingCards = $('.project-card').filter('[data-status="processing"]');
+        
+        const checkInterval = setInterval(function() {
+            checkCount++;
+            
+            // Add pulsing effect to processing cards
+            processingCards.each(function() {
+                const $card = $(this);
+                $card.find('.card').addClass('processing-pulse');
+                setTimeout(() => {
+                    $card.find('.card').removeClass('processing-pulse');
+                }, 1000);
+            });
+            
+            if (checkCount >= maxChecks) {
+                clearInterval(checkInterval);
+                showNotification('Some projects are taking longer than expected. Refresh manually to check status.', 'warning');
+                return;
+            }
+            
+        }, 5000);
+    }
+
+    // Project filtering
+    function filterProjects(filter) {
+        const $projects = $('.project-card');
+        
+        $projects.each(function() {
+            const $project = $(this);
+            const status = $project.data('status');
+            
+            if (filter === 'all' || status === filter) {
+                $project.removeClass('d-none').addClass('fade-in');
+            } else {
+                $project.addClass('d-none').removeClass('fade-in');
+            }
+        });
+        
+        // Update visible count
+        const visibleCount = $projects.not('.d-none').length;
+        showNotification(`Showing ${visibleCount} projects`, 'info');
+    }
+
+    // View mode toggle
+    function setViewMode(mode) {
+        const $container = $('#projectsContainer');
+        const $buttons = $('.btn-group button');
+        
+        $buttons.removeClass('active');
+        $(`button[onclick="setViewMode('${mode}')"]`).addClass('active');
+        
+        if (mode === 'list') {
+            $container.removeClass('row g-4').addClass('list-group');
+            $('.project-card').removeClass('col-xl-4 col-lg-6 col-md-6').addClass('list-group-item p-0 mb-3');
+            $('.card').addClass('border-0');
+        } else {
+            $container.removeClass('list-group').addClass('row g-4');
+            $('.project-card').removeClass('list-group-item p-0 mb-3').addClass('col-xl-4 col-lg-6 col-md-6');
+            $('.card').removeClass('border-0');
+        }
+        
+        showNotification(`Switched to ${mode} view`, 'success');
+    }
+
+    // Refresh gallery
+    function refreshGallery() {
+        showLoadingOverlay();
+    }
+
+    // Image preview
+    function previewImage(imageUrl, projectName) {
+        $('#previewImage').attr('src', imageUrl);
+        $('#imagePreviewModalLabel').html(`<i class="fas fa-image me-2"></i>${projectName} - Visualization`);
+        $('#imagePreviewModal').modal('show');
+    }
+
+    // Delete confirmation
+    function confirmDelete(projectId, projectName) {
+        $('#deleteProjectName').text(projectName);
+        $('#deleteConfirmLink').attr('href', `/project/${projectId}/delete/`);
+        $('#deleteConfirmModal').modal('show');
+    }
+
+    // Keyboard navigation
+    function setupKeyboardNavigation() {
+        $(document).keydown(function(e) {
+            // F5 = Refresh
+            if (e.key === 'F5') {
+                e.preventDefault();
+                refreshGallery();
+            }
+            
+            // 1, 2, 3 = Filter shortcuts
+            if (e.key === '1') {
+                $('#filter-all').prop('checked', true).trigger('change');
+            }
+            if (e.key === '2') {
+                $('#filter-processing').prop('checked', true).trigger('change');
+            }
+            if (e.key === '3') {
+                $('#filter-completed').prop('checked', true).trigger('change');
+            }
+        });
+    }
+
+    // Lazy loading setup
+    function setupLazyLoading() {
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.classList.add('loaded');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+
+            $('.audio-visualization img').each(function() {
+                imageObserver.observe(this);
+            });
+        }
+    }
+
+    // Add CSS for processing pulse animation
+    $('<style>')
+        .prop('type', 'text/css')
+        .html(`
+            .processing-pulse {
+                animation: processingPulse 1s ease-in-out;
+            }
+            
+            @keyframes processingPulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.02); }
+            }
+            
+            .page-link.glass-effect {
+                background: var(--bg-tertiary);
+                border: 1px solid var(--border-default);
+                color: var(--text-secondary);
+                transition: all 0.3s ease;
+            }
+            
+            .page-link.glass-effect:hover {
+                background: var(--primary-blue);
+                border-color: var(--primary-blue);
+                color: white;
+                transform: translateY(-1px);
+            }
+            
+            .audio-visualization img {
+                transition: all 0.3s ease;
+                opacity: 0;
+            }
+            
+            .audio-visualization img.loaded {
+                opacity: 1;
+            }
+            
+            .audio-visualization img:hover {
+                transform: scale(1.05);
+                box-shadow: var(--shadow-glow);
+            }
+            
+            .hover-accent:hover {
+                color: var(--primary-blue) !important;
+            }
+        `)
+        .appendTo('head');
+</script>
+{% endblock %}

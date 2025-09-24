@@ -1,0 +1,290 @@
+{% extends 'application/base.html' %}
+
+{% block title %}{{ project.name }} - Audio Wave Studio{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Project Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="text-primary">
+                        <i class="fas fa-wave-square"></i> {{ project.name }}
+                        {% if project.is_processing %}
+                            <span class="processing-indicator ms-2" title="Processing..."></span>
+                        {% endif %}
+                    </h1>
+                    <p class="text-secondary mb-2">
+                        <i class="fas fa-tag"></i> {{ project.get_wave_type_display }} | 
+                        <i class="far fa-clock"></i> {{ project.created_at|date:"M d, Y H:i" }}
+                    </p>
+                    {% if project.description %}
+                        <p class="text-muted">{{ project.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="btn-group" role="group">
+                    {% if not project.is_processing %}
+                        <a href="{% url 'visualize_project' project.id %}" class="btn btn-primary">
+                            <i class="fas fa-chart-line"></i> Interactive Visualizer
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'delete_project' project.id %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash"></i> Delete
+                    </a>
+                    <a href="{% url 'gallery' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if project.processing_error %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> 
+            Processing Error: {{ project.processing_error }}
+        </div>
+    {% endif %}
+
+    {% if project.is_processing %}
+        <div class="alert alert-info">
+            <i class="fas fa-cog fa-spin"></i> 
+            Project is currently being processed. This page will auto-refresh when complete.
+        </div>
+    {% else %}
+        <!-- Project Content -->
+        <div class="row">
+            <!-- Visualizations -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-primary">
+                            <i class="fas fa-image"></i> Visualizations
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% if project.final_drawing %}
+                                <div class="col-md-12 mb-4">
+                                    <h6 class="text-secondary">Final Drawing</h6>
+                                    <div class="audio-visualization text-center">
+                                        <img src="{{ project.final_drawing.url }}" 
+                                             alt="Final Drawing" 
+                                             class="img-fluid"
+                                             onclick="openImageModal(this.src, 'Final Drawing')">
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="{{ project.final_drawing.url }}" download class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-download"></i> PNG
+                                        </a>
+                                        {% if project.final_drawing_svg %}
+                                            <a href="{{ project.final_drawing_svg.url }}" download class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-download"></i> SVG
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            {% if project.natural_lang %}
+                                <div class="col-md-6 mb-4">
+                                    <h6 class="text-secondary">Natural Language View</h6>
+                                    <div class="audio-visualization text-center">
+                                        <img src="{{ project.natural_lang.url }}" 
+                                             alt="Natural Language" 
+                                             class="img-fluid"
+                                             onclick="openImageModal(this.src, 'Natural Language')">
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="{{ project.natural_lang.url }}" download class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-download"></i> PNG
+                                        </a>
+                                        {% if project.natural_lang_svg %}
+                                            <a href="{{ project.natural_lang_svg.url }}" download class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-download"></i> SVG
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            {% if project.wave_comparison %}
+                                <div class="col-md-6 mb-4">
+                                    <h6 class="text-secondary">Wave Comparison</h6>
+                                    <div class="audio-visualization text-center">
+                                        <img src="{{ project.wave_comparison.url }}" 
+                                             alt="Wave Comparison" 
+                                             class="img-fluid"
+                                             onclick="openImageModal(this.src, 'Wave Comparison')">
+                                    </div>
+                                    <div class="mt-2">
+                                        <a href="{{ project.wave_comparison.url }}" download class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-download"></i> PNG
+                                        </a>
+                                        {% if project.wave_comparison_svg %}
+                                            <a href="{{ project.wave_comparison_svg.url }}" download class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-download"></i> SVG
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Details -->
+            <div class="col-lg-4">
+                <!-- Audio Files -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-primary">
+                            <i class="fas fa-music"></i> Audio Files
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if project.original_file %}
+                            <div class="mb-3">
+                                <h6 class="text-secondary">Original Audio</h6>
+                                <audio controls class="w-100 mb-2">
+                                    <source src="{{ project.original_file.url }}" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                <a href="{{ project.original_file.url }}" download class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-download"></i> Download Original
+                                </a>
+                            </div>
+                        {% endif %}
+                        
+                        {% if project.modified_file %}
+                            <div class="mb-3">
+                                <h6 class="text-secondary">Modified Audio</h6>
+                                <audio controls class="w-100 mb-2">
+                                    <source src="{{ project.modified_file.url }}" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                <a href="{{ project.modified_file.url }}" download class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-download"></i> Download Modified
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Project Settings -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-primary">
+                            <i class="fas fa-cog"></i> Project Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="text-secondary">Wave Type</h6>
+                            <span class="badge bg-secondary">{{ project.get_wave_type_display }}</span>
+                        </div>
+                        
+                        {% if project.wave_parameters %}
+                            <div class="mb-3">
+                                <h6 class="text-secondary">Wave Parameters</h6>
+                                <small class="text-muted d-block">
+                                    {% for key, value in project.wave_parameters.items %}
+                                        <strong>{{ key|title }}:</strong> {{ value }}<br>
+                                    {% endfor %}
+                                </small>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <h6 class="text-secondary">Colors</h6>
+                            <div class="d-flex gap-2">
+                                <span class="color-swatch" style="background-color: {{ project.background_color }}" title="Background: {{ project.background_color }}"></span>
+                                <span class="color-swatch" style="background-color: {{ project.positive_color }}" title="Positive: {{ project.positive_color }}"></span>
+                                <span class="color-swatch" style="background-color: {{ project.negative_color }}" title="Negative: {{ project.negative_color }}"></span>
+                            </div>
+                            <small class="text-light">
+                                BG: {{ project.background_color }} | 
+                                POS: {{ project.positive_color }} | 
+                                NEG: {{ project.negative_color }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 text-primary">
+                            <i class="fas fa-code"></i> API Access
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-light small">Access this project via API:</p>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" value="{{ request.scheme }}://{{ request.get_host }}/api/projects/{{ project.id }}/" readonly>
+                            <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard(this.previousElementSibling.value)">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <a href="/api/projects/{{ project.id }}/" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt"></i> View JSON
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-primary" id="imageModalLabel"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="modalImage" src="" alt="" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openImageModal(src, title) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('imageModalLabel').textContent = title;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show success feedback
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i>';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-primary');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 1000);
+    });
+}
+
+// Auto-refresh if processing
+$(document).ready(function() {
+    {% if project.is_processing %}
+        setTimeout(function() {
+        }, 5000);
+    {% endif %}
+});
+</script>
+{% endblock %}

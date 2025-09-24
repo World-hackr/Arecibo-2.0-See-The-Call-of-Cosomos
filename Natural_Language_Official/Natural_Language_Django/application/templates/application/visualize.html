@@ -1,0 +1,930 @@
+{% extends 'application/base.html' %}
+
+{% block title %}Interactive Visualizer - {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .canvas-container {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+    
+    #waveformCanvas, #envelopeCanvas {
+        display: block;
+        border: 1px solid #ccc;
+        cursor: crosshair;
+    }
+    
+    .control-panel {
+        background: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .color-input {
+        width: 50px;
+        height: 35px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .zoom-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .zoom-display {
+        min-width: 50px;
+        text-align: center;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-wave-square"></i> Interactive Visualizer</h2>
+                <div>
+                    <a href="{% url 'project_detail' project.id %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Project
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="control-panel">
+                <div class="row align-items-center">
+                    <!-- Color Controls -->
+                    <div class="col-md-4">
+                        <label class="form-label">Colors:</label>
+                        <div class="d-flex gap-2">
+                            <input type="color" id="bgColor" class="color-input" value="{{ project.background_color }}" onchange="updateColors()" title="Background">
+                            <input type="color" id="posColor" class="color-input" value="{{ project.positive_color }}" onchange="updateColors()" title="Positive">
+                            <input type="color" id="negColor" class="color-input" value="{{ project.negative_color }}" onchange="updateColors()" title="Negative">
+                        </div>
+                    </div>
+                    
+                    <!-- Zoom Controls -->
+                    <div class="col-md-4">
+                        <label class="form-label">Zoom:</label>
+                        <div class="zoom-controls">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="zoomOut()" title="Zoom Out">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <input type="range" id="zoomSlider" class="form-range" min="0.1" max="10" step="0.1" value="1" 
+                                   onchange="setZoom(this.value)" style="width: 120px;">
+                            <span id="zoomDisplay" class="zoom-display">100%</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="zoomIn()" title="Zoom In">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()" title="Reset Zoom">
+                                <i class="fas fa-expand-arrows-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Pan Controls with Slider -->
+                    <div class="col-md-4">
+                        <label class="form-label">Pan:</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">Left</span>
+                            <input type="range" id="panSlider" class="form-range" min="0" max="100" step="1" value="0" 
+                                   onchange="setPan(this.value)" style="width: 120px;" title="Pan Position">
+                            <span class="text-muted small">Right</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Visualization Area -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="canvas-container">
+                <h5 class="p-2 mb-0 bg-light border-bottom">
+                    Interactive Envelope Editor
+                    <small class="text-muted ms-2">Click and drag to modify the envelope. Press 'P' to preview, 'R' to reset, 'U' to undo.</small>
+                </h5>
+                <canvas id="envelopeCanvas" width="800" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="control-panel">
+                <div class="row">
+                    <!-- Envelope Actions -->
+                    <div class="col-md-4">
+                        <h6>Envelope Actions:</h6>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-primary" onclick="previewEnvelope()" title="Preview Audio (P)">
+                                <i class="fas fa-play"></i> Preview
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="undoEnvelope()" title="Undo Last Stroke (U)">
+                                <i class="fas fa-undo"></i> Undo
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="resetEnvelope()" title="Reset Envelope (R)">
+                                <i class="fas fa-refresh"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Audio Playback -->
+                    <div class="col-md-4">
+                        <h6>Audio Playback:</h6>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-info" onclick="playOriginal()">
+                                <i class="fas fa-play"></i> Original
+                            </button>
+                            <button class="btn btn-outline-success" onclick="playModified()">
+                                <i class="fas fa-play"></i> Modified
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="stopAudio()">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Export Options -->
+                    <div class="col-md-4">
+                        <h6>Export:</h6>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-primary" onclick="exportCanvas('png')">
+                                <i class="fas fa-image"></i> PNG
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportCanvas('svg')">
+                                <i class="fas fa-vector-square"></i> SVG
+                            </button>
+                            <button class="btn btn-outline-success" onclick="exportAudio()">
+                                <i class="fas fa-file-audio"></i> Audio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12 text-end">
+                        <button class="btn btn-primary" onclick="saveEnvelope()">
+                            <i class="fas fa-save"></i> Save Envelope & Regenerate Audio
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements (hidden) -->
+    <audio id="originalAudio" preload="auto">
+        {% if project.original_file %}
+            <source src="{{ project.original_file.url }}" type="audio/wav">
+        {% endif %}
+    </audio>
+    
+    <audio id="modifiedAudio" preload="auto">
+        {% if project.modified_file %}
+            <source src="{{ project.modified_file.url }}" type="audio/wav">
+        {% endif %}
+    </audio>
+</div>
+
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <h5>Processing...</h5>
+                <p class="mb-0">Saving envelope and regenerating audio files...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables - Replicating the original script exactly
+let envelopeCanvas, envelopeCtx;
+let audioData = [];
+let envelopePos = [];
+let envelopeNeg = [];
+let isDrawing = false;
+let prevIdx = null;
+let lastStatePos = null;
+let lastStateNeg = null;
+let zoomLevel = 1;
+let panOffset = 0;
+let sampleRate = 44100;
+
+// Drawing state variables (matching original script)
+let offset = 0.0;
+let numPoints = 0;
+let maxAmp = 1.0;
+
+// Project data from Django
+const projectData = {
+    id: {{ project.id }},
+    bgColor: '{{ project.background_color }}',
+    posColor: '{{ project.positive_color }}',
+    negColor: '{{ project.negative_color }}'
+};
+
+// Initialize the visualizer
+$(document).ready(function() {
+    initializeCanvas();
+    loadAudioData();
+});
+
+function initializeCanvas() {
+    envelopeCanvas = document.getElementById('envelopeCanvas');
+    envelopeCtx = envelopeCanvas.getContext('2d');
+    
+    // Set canvas size
+    resizeCanvas();
+    
+    // Add event listeners for envelope editing - EXACTLY like original script
+    envelopeCanvas.addEventListener('mousedown', onMousePress);
+    envelopeCanvas.addEventListener('mousemove', onMouseMove);
+    envelopeCanvas.addEventListener('mouseup', onMouseRelease);
+    envelopeCanvas.addEventListener('mouseout', onMouseRelease);
+    
+    // Add keyboard event listeners
+    document.addEventListener('keydown', onKeyPress);
+    
+    // Add resize listener
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Make canvas focusable for keyboard events
+    envelopeCanvas.tabIndex = 0;
+    envelopeCanvas.focus();
+}
+
+function resizeCanvas() {
+    const container = envelopeCanvas.parentElement;
+    envelopeCanvas.width = container.clientWidth - 4;
+    envelopeCanvas.height = 400;
+    
+    if (audioData.length > 0) {
+        updateVisualization();
+    }
+}
+
+function loadAudioData() {
+    // Load actual audio data from the API
+    fetch(`/api/projects/${projectData.id}/audio-data/`)
+        .then(response => response.json())
+        .then(data => {
+            audioData = data.audio_data;
+            sampleRate = data.sample_rate;
+            envelopePos = data.envelope_pos;
+            envelopeNeg = data.envelope_neg;
+            numPoints = data.length;
+            maxAmp = Math.max(...audioData.map(Math.abs));
+            
+            // Initialize envelope arrays if empty
+            if (envelopePos.length !== numPoints) {
+                envelopePos = new Array(numPoints).fill(0);
+            }
+            if (envelopeNeg.length !== numPoints) {
+                envelopeNeg = new Array(numPoints).fill(0);
+            }
+            
+            updateVisualization();
+            updatePanSlider(); // Initialize pan slider state
+            showToast('Audio data loaded successfully', 'success');
+        })
+        .catch(error => {
+            console.error('Error loading audio data:', error);
+            showToast('Failed to load audio data', 'danger');
+        });
+}
+
+// Mouse event handlers - EXACTLY matching original script behavior
+function onMousePress(event) {
+    const rect = envelopeCanvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    // Check if mouse is within canvas bounds
+    if (mouseX < 0 || mouseX >= envelopeCanvas.width || mouseY < 0 || mouseY >= envelopeCanvas.height) {
+        return;
+    }
+    
+    isDrawing = true;
+    
+    // Convert mouse position to data index (like event.xdata in matplotlib)
+    const scaleX = numPoints / (envelopeCanvas.width * zoomLevel);
+    const idx = Math.floor((mouseX + panOffset) * scaleX);
+    
+    if (idx >= 0 && idx < numPoints) {
+        prevIdx = idx;
+        // Save state for undo functionality
+        lastStatePos = [...envelopePos];
+        lastStateNeg = [...envelopeNeg];
+        updateDrawing(event);
+    }
+}
+
+function onMouseMove(event) {
+    if (isDrawing) {
+        updateDrawing(event);
+    }
+}
+
+function onMouseRelease(event) {
+    isDrawing = false;
+    prevIdx = null;
+}
+
+// Core drawing function - replicating original script's update_drawing method
+function updateDrawing(event) {
+    const rect = envelopeCanvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    // Convert mouse position to data coordinates
+    const scaleX = numPoints / (envelopeCanvas.width * zoomLevel);
+    const centerY = envelopeCanvas.height / 2;
+    const scaleY = centerY * 0.8;
+    
+    const idx = Math.floor((mouseX + panOffset) * scaleX);
+    const amp = (centerY - mouseY) / scaleY;
+    
+    if (idx < 0 || idx >= numPoints) {
+        return;
+    }
+    
+    // Choose envelope based on amplitude sign (like original script)
+    const envelope = amp >= 0 ? envelopePos : envelopeNeg;
+    
+    // Interpolation between points - EXACTLY like original script
+    if (prevIdx !== null && idx !== prevIdx) {
+        let startIdx = prevIdx;
+        let endIdx = idx;
+        let startVal, endVal;
+        
+        if (startIdx > endIdx) {
+            [startIdx, endIdx] = [endIdx, startIdx];
+            startVal = amp;
+            endVal = envelope[prevIdx];
+        } else {
+            startVal = envelope[prevIdx];
+            endVal = amp;
+        }
+        
+        // Linear interpolation between points
+        for (let i = startIdx; i <= endIdx; i++) {
+            const t = (i - startIdx) / (endIdx - startIdx);
+            const interpolatedValue = startVal + t * (endVal - startVal);
+            
+            if (interpolatedValue >= 0) {
+                envelopePos[i] = interpolatedValue;
+            } else {
+                envelopeNeg[i] = interpolatedValue;
+            }
+        }
+    } else {
+        envelope[idx] = amp;
+    }
+    
+    prevIdx = idx;
+    
+    // Redraw immediately for real-time feedback
+    drawEnvelope();
+    updateVisualization();
+}
+
+// Keyboard event handler - matching original script
+function onKeyPress(event) {
+    if (!event.target.closest('#envelopeCanvas')) {
+        return;
+    }
+    
+    const key = event.key.toLowerCase();
+    
+    switch (key) {
+        case 'p':
+            previewEnvelope();
+            event.preventDefault();
+            break;
+        case 'r':
+            resetEnvelope();
+            event.preventDefault();
+            break;
+        case 'u':
+            undoEnvelope();
+            event.preventDefault();
+            break;
+    }
+}
+
+function updateVisualization() {
+    drawEnvelope(); // Only draw the envelope since we removed the waveform canvas
+}
+
+function drawWaveform() {
+    ctx.fillStyle = projectData.bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    if (audioData.length === 0) return;
+    
+    const centerY = canvas.height / 2;
+    const scaleX = (canvas.width * zoomLevel) / numPoints;
+    const scaleY = centerY * 0.8;
+    
+    ctx.lineWidth = 2;
+    
+    if (viewMode === 'original' || viewMode === 'comparison') {
+        // Draw original waveform
+        ctx.strokeStyle = '#4080ff';
+        ctx.beginPath();
+        for (let i = 0; i < audioData.length; i++) {
+            const x = i * scaleX - panOffset;
+            const y = centerY - audioData[i] * scaleY;
+            if (x >= 0 && x <= canvas.width) {
+                if (i === 0 || (i > 0 && (i-1) * scaleX - panOffset < 0)) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+        }
+        ctx.stroke();
+    }
+    
+    if (viewMode === 'modified' || viewMode === 'comparison') {
+        // Draw modified waveform
+        ctx.strokeStyle = projectData.posColor;
+        ctx.beginPath();
+        for (let i = 0; i < audioData.length; i++) {
+            let modifiedValue = audioData[i];
+            if (modifiedValue > 0) {
+                modifiedValue = envelopePos[i] + offset;
+            } else {
+                modifiedValue = envelopeNeg[i] + offset;
+            }
+            
+            const x = i * scaleX - panOffset;
+            const y = centerY - modifiedValue * scaleY;
+            if (x >= 0 && x <= canvas.width) {
+                if (i === 0 || (i > 0 && (i-1) * scaleX - panOffset < 0)) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+        }
+        ctx.stroke();
+    }
+}
+
+function drawEnvelope() {
+    envelopeCtx.fillStyle = projectData.bgColor;
+    envelopeCtx.fillRect(0, 0, envelopeCanvas.width, envelopeCanvas.height);
+    
+    if (audioData.length === 0) return;
+    
+    const centerY = envelopeCanvas.height / 2;
+    const scaleX = (envelopeCanvas.width * zoomLevel) / numPoints;
+    const scaleY = centerY * 0.8;
+    
+    // Draw original waveform faintly (like original script)
+    envelopeCtx.strokeStyle = 'rgba(64, 128, 255, 0.15)';
+    envelopeCtx.lineWidth = 1;
+    envelopeCtx.beginPath();
+    for (let i = 0; i < audioData.length; i++) {
+        const x = i * scaleX - panOffset;
+        const y = centerY - audioData[i] * scaleY;
+        if (x >= 0 && x <= envelopeCanvas.width) {
+            if (i === 0 || (i > 0 && (i-1) * scaleX - panOffset < 0)) {
+                envelopeCtx.moveTo(x, y);
+            } else {
+                envelopeCtx.lineTo(x, y);
+            }
+        }
+    }
+    envelopeCtx.stroke();
+    
+    // Draw positive envelope
+    envelopeCtx.strokeStyle = projectData.posColor;
+    envelopeCtx.lineWidth = 3;
+    envelopeCtx.beginPath();
+    for (let i = 0; i < envelopePos.length; i++) {
+        const x = i * scaleX - panOffset;
+        const y = centerY - (envelopePos[i] + offset) * scaleY;
+        if (x >= 0 && x <= envelopeCanvas.width) {
+            if (i === 0 || (i > 0 && (i-1) * scaleX - panOffset < 0)) {
+                envelopeCtx.moveTo(x, y);
+            } else {
+                envelopeCtx.lineTo(x, y);
+            }
+        }
+    }
+    envelopeCtx.stroke();
+    
+    // Draw negative envelope
+    envelopeCtx.strokeStyle = projectData.negColor;
+    envelopeCtx.lineWidth = 3;
+    envelopeCtx.beginPath();
+    for (let i = 0; i < envelopeNeg.length; i++) {
+        const x = i * scaleX - panOffset;
+        const y = centerY - (envelopeNeg[i] + offset) * scaleY;
+        if (x >= 0 && x <= envelopeCanvas.width) {
+            if (i === 0 || (i > 0 && (i-1) * scaleX - panOffset < 0)) {
+                envelopeCtx.moveTo(x, y);
+            } else {
+                envelopeCtx.lineTo(x, y);
+            }
+        }
+    }
+    envelopeCtx.stroke();
+}
+
+function updateColors() {
+    projectData.bgColor = document.getElementById('bgColor').value;
+    projectData.posColor = document.getElementById('posColor').value;
+    projectData.negColor = document.getElementById('negColor').value;
+    updateVisualization();
+}
+
+function resetEnvelope() {
+    envelopePos = new Array(numPoints).fill(0);
+    envelopeNeg = new Array(numPoints).fill(0);
+    updateVisualization();
+    showToast('Envelope reset', 'info');
+}
+
+function undoEnvelope() {
+    if (lastStatePos && lastStateNeg) {
+        envelopePos = [...lastStatePos];
+        envelopeNeg = [...lastStateNeg];
+        updateVisualization();
+        showToast('Undo last stroke', 'info');
+    }
+}
+
+function previewEnvelope() {
+    // Create modified audio data
+    const modifiedAudio = audioData.map((sample, i) => {
+        if (sample > 0) {
+            return envelopePos[i] + offset;
+        } else {
+            return envelopeNeg[i] + offset;
+        }
+    });
+    
+    // Simple audio preview using Web Audio API
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const buffer = audioContext.createBuffer(1, modifiedAudio.length, sampleRate);
+        const channelData = buffer.getChannelData(0);
+        
+        for (let i = 0; i < modifiedAudio.length; i++) {
+            channelData[i] = Math.max(-1, Math.min(1, modifiedAudio[i]));
+        }
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        
+        showToast('Playing preview...', 'info');
+    } catch (error) {
+        showToast('Preview not available in this browser', 'warning');
+    }
+}
+
+function saveEnvelope() {
+    const modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    modal.show();
+    
+    const envelopeData = {
+        positive: envelopePos,
+        negative: envelopeNeg
+    };
+    
+    fetch(`/project/${projectData.id}/update-envelope/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            envelope_data: envelopeData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        modal.hide();
+        if (data.status === 'success') {
+            showToast('Envelope saved successfully! Project is being reprocessed.', 'success');
+        } else {
+            showToast('Error saving envelope: ' + data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        modal.hide();
+        showToast('Error saving envelope: ' + error, 'danger');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Audio playback functions
+function playOriginal() {
+    const audio = document.getElementById('originalAudio');
+    const source = audio.querySelector('source');
+    
+    if (!source || !source.src) {
+        showToast('Original audio file not available', 'warning');
+        return;
+    }
+    
+    audio.currentTime = 0;
+    audio.play().then(() => {
+        showToast('Playing original audio...', 'info');
+    }).catch(error => {
+        console.error('Audio playback error:', error);
+        showToast('Unable to play audio. Check if file exists.', 'danger');
+    });
+}
+
+function playModified() {
+
+    const modifiedAudio = audioData.map((sample, i) => {
+        if (sample > 0) {
+            return envelopePos[i] + offset;
+        } else {
+            return envelopeNeg[i] + offset;
+        }
+    });
+    
+    // Simple audio preview using Web Audio API
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const buffer = audioContext.createBuffer(1, modifiedAudio.length, sampleRate);
+        const channelData = buffer.getChannelData(0);
+        
+        for (let i = 0; i < modifiedAudio.length; i++) {
+            channelData[i] = Math.max(-1, Math.min(1, modifiedAudio[i]));
+        }
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start();
+        
+        showToast('Playing modified audio...', 'info');
+    } catch (error) {
+        console.error('Audio playback error:', error);
+        showToast('Unable to play audio. Check if file exists.', 'danger');
+    }
+}
+
+function stopAudio() {
+    const originalAudio = document.getElementById('originalAudio');
+    const modifiedAudio = document.getElementById('modifiedAudio');
+    
+    originalAudio.pause();
+    modifiedAudio.pause();
+    originalAudio.currentTime = 0;
+    modifiedAudio.currentTime = 0;
+    
+    showToast('Audio stopped', 'info');
+}
+
+// Zoom and pan functions - FIXED
+function zoomIn() {
+    setZoom(zoomLevel * 1.2);
+}
+
+function zoomOut() {
+    setZoom(zoomLevel / 1.2);
+}
+
+function resetZoom() {
+    setZoom(1);
+    panOffset = 0;
+    updatePanSlider();
+    updateVisualization();
+}
+
+function setZoom(level) {
+    zoomLevel = Math.max(0.1, Math.min(10, level));
+    document.getElementById('zoomSlider').value = zoomLevel;
+    
+    // Update zoom level display
+    const zoomDisplay = document.getElementById('zoomDisplay');
+    if (zoomDisplay) {
+        zoomDisplay.textContent = `${(zoomLevel * 100).toFixed(0)}%`;
+    }
+    
+    // Adjust pan offset to keep center in view and update slider
+    const maxPan = Math.max(0, (envelopeCanvas.width * (zoomLevel - 1)));
+    panOffset = Math.max(0, Math.min(maxPan, panOffset));
+    updatePanSlider();
+    
+    updateVisualization();
+}
+
+// New pan slider function
+function setPan(percentage) {
+    const maxPan = Math.max(0, (envelopeCanvas.width * (zoomLevel - 1)));
+    panOffset = (percentage / 100) * maxPan;
+    updateVisualization();
+}
+
+function updatePanSlider() {
+    const maxPan = Math.max(0, (envelopeCanvas.width * (zoomLevel - 1)));
+    const panSlider = document.getElementById('panSlider');
+    if (panSlider && maxPan > 0) {
+        panSlider.value = (panOffset / maxPan) * 100;
+        panSlider.disabled = false;
+    } else if (panSlider) {
+        panSlider.value = 0;
+        panSlider.disabled = true;
+    }
+}
+
+// Pan functions - updated to work with slider
+function panLeft() {
+    const panStep = envelopeCanvas.width * 0.1;
+    const maxPan = Math.max(0, (envelopeCanvas.width * (zoomLevel - 1)));
+    panOffset = Math.max(0, panOffset - panStep);
+    updatePanSlider();
+    updateVisualization();
+}
+
+function panRight() {
+    const panStep = envelopeCanvas.width * 0.1;
+    const maxPan = Math.max(0, (envelopeCanvas.width * (zoomLevel - 1)));
+    panOffset = Math.min(maxPan, panOffset + panStep);
+    updatePanSlider();
+    updateVisualization();
+}
+
+// Export functions
+function exportCanvas(format) {
+    if (format === 'png') {
+        // Export just the envelope canvas
+        const link = document.createElement('a');
+        link.download = `project_${projectData.id}_envelope.png`;
+        link.href = envelopeCanvas.toDataURL();
+        link.click();
+        showToast('PNG exported successfully!', 'success');
+    } else if (format === 'svg') {
+        // For SVG, we'll create a simple SVG representation
+        showToast('SVG export: Creating downloadable SVG...', 'info');
+        
+        // Create SVG content
+        const svgContent = createSVGVisualization();
+        const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.download = `project_${projectData.id}_envelope.svg`;
+        link.href = url;
+        link.click();
+        
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        showToast('SVG exported successfully!', 'success');
+    }
+}
+
+function createSVGVisualization() {
+    const width = envelopeCanvas.width;
+    const height = envelopeCanvas.height + 40;
+    
+    let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="10" y="25" font-family="Arial" font-size="16" fill="black">Project: ${projectData.id} - Envelope Visualization Export</text>
+  <g transform="translate(0, 40)">`;
+    
+    // Add envelope data as SVG paths
+    if (audioData.length > 0) {
+        const scaleX = width / audioData.length;
+        const centerY = envelopeCanvas.height / 2;
+        const scaleY = centerY * 0.8;
+        
+        // Original waveform (faint)
+        svg += `<path d="M`;
+        for (let i = 0; i < audioData.length; i++) {
+            const x = i * scaleX;
+            const y = centerY - audioData[i] * scaleY;
+            svg += `${i === 0 ? '' : 'L'}${x},${y}`;
+        }
+        svg += `" stroke="rgba(64,128,255,0.15)" stroke-width="1" fill="none"/>`;
+        
+        // Positive envelope
+        svg += `<path d="M`;
+        for (let i = 0; i < envelopePos.length; i++) {
+            const x = i * scaleX;
+            const y = centerY - (envelopePos[i] + offset) * scaleY;
+            svg += `${i === 0 ? '' : 'L'}${x},${y}`;
+        }
+        svg += `" stroke="${projectData.posColor}" stroke-width="3" fill="none"/>`;
+        
+        // Negative envelope
+        svg += `<path d="M`;
+        for (let i = 0; i < envelopeNeg.length; i++) {
+            const x = i * scaleX;
+            const y = centerY - (envelopeNeg[i] + offset) * scaleY;
+            svg += `${i === 0 ? '' : 'L'}${x},${y}`;
+        }
+        svg += `" stroke="${projectData.negColor}" stroke-width="3" fill="none"/>`;
+    }
+    
+    svg += `  </g>
+</svg>`;
+    
+    return svg;
+}
+
+function exportAudio() {
+    showToast('Preparing audio export...', 'info');
+    
+    if (!projectData.id) {
+        showToast('No project data available for export', 'error');
+        return;
+    }
+    
+    // Create links to download both original and modified audio
+    const originalLink = document.getElementById('originalAudio').querySelector('source');
+    const modifiedLink = document.getElementById('modifiedAudio').querySelector('source');
+    
+    if (originalLink && originalLink.src) {
+        const link1 = document.createElement('a');
+        link1.download = `project_${projectData.id}_original.wav`;
+        link1.href = originalLink.src;
+        link1.click();
+    }
+    
+    if (modifiedLink && modifiedLink.src) {
+        const link2 = document.createElement('a');
+        link2.download = `project_${projectData.id}_modified.wav`;
+        link2.href = modifiedLink.src;
+        link2.click();
+    }
+    
+    if (originalLink || modifiedLink) {
+        showToast('Audio files downloaded!', 'success');
+    } else {
+        showToast('No audio files available for download', 'warning');
+    }
+}
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    toast.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <i class="fas fa-info-circle"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
